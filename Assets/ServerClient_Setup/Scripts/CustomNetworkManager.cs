@@ -58,8 +58,9 @@ public class CustomNetworkManager : NetworkManager
             foreach(string connectionId in players.Keys)
             {
                 StringMessage integerMessage = new StringMessage(connectionId);
-                NetworkServer.SendToAll(MsgType.Ready + 1, integerMessage);
+                NetworkServer.SendToAll(MsgType.AddPlayer + 1, integerMessage);
             }
+            NetworkServer.SendToAll(MsgType.Ready + 1, new EmptyMessage());
         }
     }
 
@@ -82,6 +83,7 @@ public class CustomNetworkManager : NetworkManager
     public override void OnStartClient(NetworkClient client)
     {
         base.OnStartClient(client);
+        players = new Dictionary<string, NetworkConnection>(NumberOfPlayers);
         RegisterClientHandles();
     }
 
@@ -111,17 +113,85 @@ public class CustomNetworkManager : NetworkManager
     void RegisterServerHandles()
     {
         NetworkServer.RegisterHandler(MsgType.Highest + 1, OnReceivePassword);
+
+        NetworkServer.RegisterHandler(LockstepMsgType.ReadyToStart, onReadyToStart);
+        NetworkServer.RegisterHandler(LockstepMsgType.ConfirmReadyToStart, onReadyToStart);
+
+        NetworkServer.RegisterHandler(LockstepMsgType.RecieveAction, onRecieveAction);
+        NetworkServer.RegisterHandler(LockstepMsgType.ConfirmAction, onConfirmAction);
+    }
+
+    private void onConfirmAction(NetworkMessage netMsg)
+    {
+        NetworkServer.SendToAll(netMsg.msgType, netMsg.ReadMessage<RecieveActionMessage>());
+    }
+
+    private void onRecieveAction(NetworkMessage netMsg)
+    {
+        NetworkServer.SendToAll(netMsg.msgType, netMsg.ReadMessage<RecieveActionMessage>());
+    }
+
+    private void onReadyToStart(NetworkMessage netMsg)
+    {
+        NetworkServer.SendToAll(netMsg.msgType, new EmptyMessage());
     }
 
     void RegisterClientHandles()
     {
         client.RegisterHandler(MsgType.Highest + 1, OnReceivePassword);
-        client.RegisterHandler(MsgType.Ready + 1, OnReceiveReady);
+        client.RegisterHandler(MsgType.AddPlayer + 1, OnAddPlayer);
+        client.RegisterHandler(MsgType.Ready + 1, OnStartGame);
+
+        client.RegisterHandler(LockstepMsgType.ReadyToStart, OnClientReadyToStart);
+        client.RegisterHandler(LockstepMsgType.ConfirmReadyToStart, OnConfirmReadyToStart);
+
+        client.RegisterHandler(LockstepMsgType.RecieveAction, OnClientRecieveAction);
+        client.RegisterHandler(LockstepMsgType.ConfirmAction, OnClientConfirmAction);
     }
 
-    private void OnReceiveReady(NetworkMessage netMsg)
+    private void OnClientConfirmAction(NetworkMessage netMsg)
+    {
+        RecieveActionMessage recieveActionMessage = netMsg.ReadMessage<RecieveActionMessage>();
+        clientHudScript.ConfirmAction(recieveActionMessage.LockStepTurnID, netMsg.conn.connectionId.ToString());
+    }
+
+    private void OnClientRecieveAction(NetworkMessage netMsg)
+    {
+        RecieveActionMessage recieveActionMessage = netMsg.ReadMessage<RecieveActionMessage>();
+        clientHudScript.RecieveAction(recieveActionMessage.LockStepTurnID, netMsg.conn.connectionId.ToString(), recieveActionMessage.value);
+    }
+
+    private void OnConfirmReadyToStart(NetworkMessage netMsg)
+    {
+        string netId = netMsg.ReadMessage<StringMessage>().value;
+        clientHudScript.ConfirmReadyToStart(netMsg.conn.connectionId.ToString(), netId);
+        Debug.Log("OnConfirmReadyToStart " + netMsg.conn.connectionId.ToString() + " netId " + netId);
+    }
+
+    private void OnClientReadyToStart(NetworkMessage netMsg)
+    {
+        clientHudScript.ReadyToStart(netMsg.conn.connectionId.ToString());
+        Debug.Log("OnClientReadyToStart " + netMsg.conn.connectionId.ToString());
+    }
+
+    private void OnStartGame(NetworkMessage netMsg)
+    {
+        Debug.Log("OnStartGame...");
+    }
+
+    private void OnAddPlayer(NetworkMessage netMsg)
     {
         string netId = netMsg.ReadMessage<StringMessage>().value;
         players.Add(netId, null);
+        Debug.Log("OnAddPlayer...netId " + netId);
     }
+}
+
+public class LockstepMsgType
+{
+    public const short ReadyToStart = 100;
+    //public const short ConfirmReadyToStartServer = 101;
+    public const short ConfirmReadyToStart = 102;
+    public const short RecieveAction = 103; 
+    public const short ConfirmAction = 104;
 }

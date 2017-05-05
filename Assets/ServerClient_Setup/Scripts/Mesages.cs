@@ -11,6 +11,18 @@ public class Mesages : NetworkBehaviour {
     public Renderer cubeMat;
     public bool isGreen;
 
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        Debug.Log("OnStartServer...");
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        Debug.Log("OnStartClient...");
+    }
+
     //Setting up the SyncVar.
     [SyncVar(hook = "OnVarSynced")]//this needs to be above the variable you want to sync. (you can name the "Hook" everything you want, but be aware that this is the name of a function that is called on the clients when the SyncVar changes on the server)
     public string varToSync; //if this changes on the server a "message" will be send to the clients automaticaly. 
@@ -89,7 +101,7 @@ public class Mesages : NetworkBehaviour {
 
 
     [ClientRpc]
-    void StartGame()
+    void RpcStartGame()
     {
         Debug.Log("StartGame isLocalPlayer " + isLocalPlayer);
         if (isLocalPlayer)
